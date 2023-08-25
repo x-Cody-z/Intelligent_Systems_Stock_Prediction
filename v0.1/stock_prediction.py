@@ -27,77 +27,19 @@ import yfinance as yf
 from sklearn.preprocessing import MinMaxScaler
 from tensorflow.keras.models import Sequential
 from tensorflow.keras.layers import Dense, Dropout, LSTM, InputLayer
+from data_processing import *
 
-#------------------------------------------------------------------------------
-# Load Data
-## TO DO:
-# 1) Check if data has been saved before. 
-# If so, load the saved data
-# If not, save the data into a directory
-#------------------------------------------------------------------------------
-DATA_SOURCE = "yahoo"
-COMPANY = "TSLA"
+PREDICTION_DAYS = 50
+COMPANY = 'AMZN'
 
-# start = '2012-01-01', end='2017-01-01'
-TRAIN_START = '2015-01-01'
-TRAIN_END = '2020-01-01'
+data = load_data(data_start='2015-01-01', data_end='2022-12-31', ticker=COMPANY, n_steps=PREDICTION_DAYS, split_by_date=True, test_size=0.2, 
+                 feature_columns=['adjclose', 'volume', 'open', 'high', 'low'], store_data=True, load_data=True)
 
-data =  yf.download(COMPANY, start=TRAIN_START, end=TRAIN_END, progress=False)
-# yf.download(COMPANY, start = TRAIN_START, end=TRAIN_END)
-
-# For more details: 
-# https://pandas.pydata.org/pandas-docs/stable/user_guide/dsintro.html
-#------------------------------------------------------------------------------
-# Prepare Data
-## To do:
-# 1) Check if data has been prepared before. 
-# If so, load the saved data
-# If not, save the data into a directory
-# 2) Use a different price value eg. mid-point of Open & Close
-# 3) Change the Prediction days
-#------------------------------------------------------------------------------
-PRICE_VALUE = "Close"
-
-scaler = MinMaxScaler(feature_range=(0, 1)) 
-# Note that, by default, feature_range=(0, 1). Thus, if you want a different 
-# feature_range (min,max) then you'll need to specify it here
-scaled_data = scaler.fit_transform(data[PRICE_VALUE].values.reshape(-1, 1)) 
-# Flatten and normalise the data
-# First, we reshape a 1D array(n) to 2D array(n,1)
-# We have to do that because sklearn.preprocessing.fit_transform()
-# requires a 2D array
-# Here n == len(scaled_data)
-# Then, we scale the whole array to the range (0,1)
-# The parameter -1 allows (np.)reshape to figure out the array size n automatically 
-# values.reshape(-1, 1) 
-# https://stackoverflow.com/questions/18691084/what-does-1-mean-in-numpy-reshape'
-# When reshaping an array, the new shape must contain the same number of elements 
-# as the old shape, meaning the products of the two shapes' dimensions must be equal. 
-# When using a -1, the dimension corresponding to the -1 will be the product of 
-# the dimensions of the original array divided by the product of the dimensions 
-# given to reshape so as to maintain the same number of elements.
-
-# Number of days to look back to base the prediction
-PREDICTION_DAYS = 60 # Original
-
-# To store the training data
-x_train = []
-y_train = []
-
-scaled_data = scaled_data[:,0] # Turn the 2D array back to a 1D array
-# Prepare the data
-for x in range(PREDICTION_DAYS, len(scaled_data)):
-    x_train.append(scaled_data[x-PREDICTION_DAYS:x])
-    y_train.append(scaled_data[x])
-
-# Convert them into an array
-x_train, y_train = np.array(x_train), np.array(y_train)
-# Now, x_train is a 2D array(p,q) where p = len(scaled_data) - PREDICTION_DAYS
-# and q = PREDICTION_DAYS; while y_train is a 1D array(p)
-
-x_train = np.reshape(x_train, (x_train.shape[0], x_train.shape[1], 1))
-# We now reshape x_train into a 3D array(p, q, 1); Note that x_train 
-# is an array of p inputs with each input being a 2D array 
+scaler = data['column_scaler']
+x_train = data['X_train']
+y_train = data['y_train']
+x_test = data['X_test']
+y_test = data['y_test']
 
 #------------------------------------------------------------------------------
 # Build the Model
@@ -183,10 +125,9 @@ model.fit(x_train, y_train, epochs=25, batch_size=32)
 # Test the model accuracy on existing data
 #------------------------------------------------------------------------------
 # Load the test data
-TEST_START = '2020-01-02'
-TEST_END = '2022-12-31'
 
-test_data = yf.download(COMPANY, start=TRAIN_START, end=TRAIN_END, progress=False)
+test_data = data['test_df']
+PRICE_VALUE = 'adjclose'
 
 # The above bug is the reason for the following line of code
 test_data = test_data[1:]
