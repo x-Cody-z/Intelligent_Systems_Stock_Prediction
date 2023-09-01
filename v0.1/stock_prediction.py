@@ -23,19 +23,37 @@ import pandas_datareader as web
 import datetime as dt
 import tensorflow as tf
 import yfinance as yf
+#import talib as tl
+import mplfinance as fplt
 
 from sklearn.preprocessing import MinMaxScaler
 from tensorflow.keras.models import Sequential
 from tensorflow.keras.layers import Dense, Dropout, LSTM, InputLayer
 from data_processing import *
+from data_visualising import *
+
+
 
 PREDICTION_DAYS = 50
 COMPANY = 'AMZN'
+DATA_START = '2015-01-01'
+DATA_END = '2022-12-31'
+SPLIT_BY_DATE = True
+TEST_SIZE = 0.2
+FEATURE_COLUMNS = ['adjclose', 'volume', 'open', 'high', 'low']
+STORE_DATA = True
+LOAD_DATA = True
 
-data = load_data(data_start='2015-01-01', data_end='2022-12-31', ticker=COMPANY, n_steps=PREDICTION_DAYS, split_by_date=True, test_size=0.2, 
-                 feature_columns=['adjclose', 'volume', 'open', 'high', 'low'], store_data=True, load_data=True)
+
+#make start and end date
+data = load_data(data_start=DATA_START, data_end=DATA_END, ticker=COMPANY, n_steps=PREDICTION_DAYS, split_by_date=SPLIT_BY_DATE, test_size=TEST_SIZE, 
+                 feature_columns=FEATURE_COLUMNS, store_data=STORE_DATA, load_data=LOAD_DATA)
+
+plotCandlestick(data['test_df'], 30)
+plotBoxplot(data['test_df'])
 
 scaler = data['column_scaler']
+scaler = scaler['adjclose']
 x_train = data['X_train']
 y_train = data['y_train']
 x_test = data['X_test']
@@ -53,7 +71,7 @@ model = Sequential() # Basic neural network
 # See: https://www.tensorflow.org/api_docs/python/tf/keras/Sequential
 # for some useful examples
 
-model.add(LSTM(units=50, return_sequences=True, input_shape=(x_train.shape[1], 1)))
+model.add(LSTM(units=50, return_sequences=True, input_shape=(x_train.shape[1], 5)))
 # This is our first hidden layer which also spcifies an input layer. 
 # That's why we specify the input shape for this layer; 
 # i.e. the format of each training example
@@ -126,25 +144,27 @@ model.fit(x_train, y_train, epochs=25, batch_size=32)
 #------------------------------------------------------------------------------
 # Load the test data
 
-test_data = data['test_df']
-PRICE_VALUE = 'adjclose'
+#test_data = data['test_df']
+#PRICE_VALUE = 'adjclose'
 
 # The above bug is the reason for the following line of code
-test_data = test_data[1:]
+#test_data = test_data[1:]
 
-actual_prices = test_data[PRICE_VALUE].values
+actual_prices = np.squeeze(scaler.inverse_transform(np.expand_dims(y_test, axis=0)))
 
-total_dataset = pd.concat((data[PRICE_VALUE], test_data[PRICE_VALUE]), axis=0)
-
-model_inputs = total_dataset[len(total_dataset) - len(test_data) - PREDICTION_DAYS:].values
+#total_dataset = data['df']
+#print(data['df'])
+#print(data['test_df'])
+# total_dataset = total_dataset[PRICE_VALUE]
+#model_inputs = total_dataset[len(total_dataset) - len(test_data) - PREDICTION_DAYS:].values
 # We need to do the above because to predict the closing price of the fisrt
 # PREDICTION_DAYS of the test period [TEST_START, TEST_END], we'll need the 
 # data from the training period
 
-model_inputs = model_inputs.reshape(-1, 1)
+#model_inputs = model_inputs.reshape(-1, 1)
 # TO DO: Explain the above line
 
-model_inputs = scaler.transform(model_inputs)
+#model_inputs = scaler.transform(model_inputs)
 # We again normalize our closing price data to fit them into the range (0,1)
 # using the same scaler used above 
 # However, there may be a problem: scaler was computed on the basis of
@@ -161,12 +181,12 @@ model_inputs = scaler.transform(model_inputs)
 #------------------------------------------------------------------------------
 # Make predictions on test data
 #------------------------------------------------------------------------------
-x_test = []
-for x in range(PREDICTION_DAYS, len(model_inputs)):
-    x_test.append(model_inputs[x - PREDICTION_DAYS:x, 0])
+#x_test = []
+#for x in range(PREDICTION_DAYS, len(model_inputs)):
+#    x_test.append(model_inputs[x - PREDICTION_DAYS:x, 0])
 
-x_test = np.array(x_test)
-x_test = np.reshape(x_test, (x_test.shape[0], x_test.shape[1], 1))
+#x_test = np.array(x_test)
+#x_test = np.reshape(x_test, (x_test.shape[0], x_test.shape[1], 1))
 # TO DO: Explain the above 5 lines
 
 predicted_prices = model.predict(x_test)
@@ -194,13 +214,28 @@ plt.show()
 #------------------------------------------------------------------------------
 
 
-real_data = [model_inputs[len(model_inputs) - PREDICTION_DAYS:, 0]]
-real_data = np.array(real_data)
-real_data = np.reshape(real_data, (real_data.shape[0], real_data.shape[1], 1))
+#real_data = [model_inputs[len(model_inputs) - PREDICTION_DAYS:, 0]]
+#real_data = np.array(real_data)
+#real_data = np.reshape(real_data, (real_data.shape[0], real_data.shape[1], 1))
+#real_data = y_test
 
-prediction = model.predict(real_data)
-prediction = scaler.inverse_transform(prediction)
-print(f"Prediction: {prediction}")
+#prediction = model.predict(real_data)
+#prediction = scaler.inverse_transform(prediction)
+#print(f"Prediction: {prediction}")
+
+# retrieve the last sequence from data
+last_sequence = data["last_sequence"][-PREDICTION_DAYS:]
+# expand dimension
+last_sequence = np.expand_dims(last_sequence, axis=0)
+# get the prediction (scaled from 0 to 1)
+prediction = model.predict(last_sequence)
+# get the price (by inverting the scaling)
+predicted_price = scaler.inverse_transform(prediction)[0][0]
+
+print(f"Future price after {1} days is {predicted_price:.2f}$")
+
+
+
 
 # A few concluding remarks here:
 # 1. The predictor is quite bad, especially if you look at the next day 
