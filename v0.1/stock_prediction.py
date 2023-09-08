@@ -28,29 +28,41 @@ import mplfinance as fplt
 
 from sklearn.preprocessing import MinMaxScaler
 from tensorflow.keras.models import Sequential
-from tensorflow.keras.layers import Dense, Dropout, LSTM, InputLayer
+from tensorflow.keras.layers import Dense, Dropout, LSTM, InputLayer, Bidirectional, RNN, GRU
 from data_processing import *
 from data_visualising import *
+from model_creation import *
 
 
-
+#Load Data Variables
 PREDICTION_DAYS = 50
 COMPANY = 'AMZN'
 DATA_START = '2015-01-01'
-DATA_END = '2022-12-31'
+DATA_END = '2022-12-30'
 SPLIT_BY_DATE = True
 TEST_SIZE = 0.2
 FEATURE_COLUMNS = ['adjclose', 'volume', 'open', 'high', 'low']
 STORE_DATA = True
 LOAD_DATA = True
 
+#Create Model Variables
+N_LAYERS = 2
+CELL = LSTM
+UNITS = 256
+DROPOUT = 0.4
+BIDIRECTIONAL = False
+LOSS = "huber_loss"
+OPTIMIZER = "adam"
+BATCH_SIZE = 32
+EPOCHS = 25
+
 
 #make start and end date
 data = load_data(data_start=DATA_START, data_end=DATA_END, ticker=COMPANY, n_steps=PREDICTION_DAYS, split_by_date=SPLIT_BY_DATE, test_size=TEST_SIZE, 
                  feature_columns=FEATURE_COLUMNS, store_data=STORE_DATA, load_data=LOAD_DATA)
 
-plotCandlestick(data['test_df'], 30)
-plotBoxplot(data['test_df'])
+#plotCandlestick(data['test_df'], 30)
+#plotBoxplot(data['test_df'])
 
 scaler = data['column_scaler']
 scaler = scaler['adjclose']
@@ -67,57 +79,13 @@ y_test = data['y_test']
 # If not, save the data into a directory
 # 2) Change the model to increase accuracy?
 #------------------------------------------------------------------------------
-model = Sequential() # Basic neural network
-# See: https://www.tensorflow.org/api_docs/python/tf/keras/Sequential
-# for some useful examples
+model = create_model(PREDICTION_DAYS, len(FEATURE_COLUMNS), loss=LOSS, units=UNITS, cell=CELL, n_layers=N_LAYERS,
+                    dropout=DROPOUT, optimizer=OPTIMIZER, bidirectional=BIDIRECTIONAL)
 
-model.add(LSTM(units=50, return_sequences=True, input_shape=(x_train.shape[1], 5)))
-# This is our first hidden layer which also spcifies an input layer. 
-# That's why we specify the input shape for this layer; 
-# i.e. the format of each training example
-# The above would be equivalent to the following two lines of code:
-# model.add(InputLayer(input_shape=(x_train.shape[1], 1)))
-# model.add(LSTM(units=50, return_sequences=True))
-# For som eadvances explanation of return_sequences:
-# https://machinelearningmastery.com/return-sequences-and-return-states-for-lstms-in-keras/
-# https://www.dlology.com/blog/how-to-use-return_state-or-return_sequences-in-keras/
-# As explained there, for a stacked LSTM, you must set return_sequences=True 
-# when stacking LSTM layers so that the next LSTM layer has a 
-# three-dimensional sequence input. 
-
-# Finally, units specifies the number of nodes in this layer.
-# This is one of the parameters you want to play with to see what number
-# of units will give you better prediction quality (for your problem)
-
-model.add(Dropout(0.2))
-# The Dropout layer randomly sets input units to 0 with a frequency of 
-# rate (= 0.2 above) at each step during training time, which helps 
-# prevent overfitting (one of the major problems of ML). 
-
-model.add(LSTM(units=50, return_sequences=True))
-# More on Stacked LSTM:
-# https://machinelearningmastery.com/stacked-long-short-term-memory-networks/
-
-model.add(Dropout(0.2))
-model.add(LSTM(units=50))
-model.add(Dropout(0.2))
-
-model.add(Dense(units=1)) 
-# Prediction of the next closing value of the stock price
-
-# We compile the model by specify the parameters for the model
-# See lecture Week 6 (COS30018)
-model.compile(optimizer='adam', loss='mean_squared_error')
-# The optimizer and loss are two important parameters when building an 
-# ANN model. Choosing a different optimizer/loss can affect the prediction
-# quality significantly. You should try other settings to learn; e.g.
-    
-# optimizer='rmsprop'/'sgd'/'adadelta'/...
-# loss='mean_absolute_error'/'huber_loss'/'cosine_similarity'/...
 
 # Now we are going to train this model with our training data 
 # (x_train, y_train)
-model.fit(x_train, y_train, epochs=25, batch_size=32)
+model.fit(x_train, y_train, epochs=EPOCHS, batch_size=BATCH_SIZE)
 # Other parameters to consider: How many rounds(epochs) are we going to 
 # train our model? Typically, the more the better, but be careful about
 # overfitting!

@@ -19,6 +19,7 @@ def plotCandlestick(df, n_days=1):
 
     #TODO this is used for the n day aspect of the candlestick
     #learnt from bottom 2 links on this page: https://github.com/matplotlib/mplfinance/wiki/Plotting-Too-Much-Data
+    #TODO change renaming from "Unnamed: 0" to column index (0)
     df.rename(columns={'Unnamed: 0': 'date'}, inplace=True)
 
 
