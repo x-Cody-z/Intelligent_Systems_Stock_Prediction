@@ -47,25 +47,29 @@ LOAD_DATA = True
 
 #Create Model Variables
 N_LAYERS = 2
-CELL = LSTM
+CELL = GRU
 UNITS = 256
 DROPOUT = 0.4
 BIDIRECTIONAL = False
 LOSS = "huber_loss"
 OPTIMIZER = "adam"
-BATCH_SIZE = 32
-EPOCHS = 25
+BATCH_SIZE = 128
+EPOCHS = 20
+
+#Multi-step variable
+LOOKUP_DAYS = 20
+COLUMN_PREDICTION = 'adjclose'
 
 
 #make start and end date
 data = load_data(data_start=DATA_START, data_end=DATA_END, ticker=COMPANY, n_steps=PREDICTION_DAYS, split_by_date=SPLIT_BY_DATE, test_size=TEST_SIZE, 
-                 feature_columns=FEATURE_COLUMNS, store_data=STORE_DATA, load_data=LOAD_DATA)
+                 feature_columns=FEATURE_COLUMNS, store_data=STORE_DATA, load_data=LOAD_DATA, lookup_step=LOOKUP_DAYS)
 
 #plotCandlestick(data['test_df'], 30)
 #plotBoxplot(data['test_df'])
 
 scaler = data['column_scaler']
-scaler = scaler['adjclose']
+scaler = scaler[COLUMN_PREDICTION]
 x_train = data['X_train']
 y_train = data['y_train']
 x_test = data['X_test']
@@ -200,7 +204,7 @@ prediction = model.predict(last_sequence)
 # get the price (by inverting the scaling)
 predicted_price = scaler.inverse_transform(prediction)[0][0]
 
-print(f"Future price after {1} days is {predicted_price:.2f}$")
+print(f"Future price after {LOOKUP_DAYS} days is {predicted_price:.2f}$")
 
 
 
