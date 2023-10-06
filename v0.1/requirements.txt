@@ -9,3 +9,4 @@ yahoo_fin
 yfinance
 mplfinance
 TA-Lib
+statsmodels

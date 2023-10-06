@@ -29,9 +29,12 @@ import mplfinance as fplt
 from sklearn.preprocessing import MinMaxScaler
 from tensorflow.keras.models import Sequential
 from tensorflow.keras.layers import Dense, Dropout, LSTM, InputLayer, Bidirectional, RNN, GRU
+from statsmodels.tsa.arima.model import ARIMA, ARIMAResults
+
 from data_processing import *
 from data_visualising import *
 from model_creation import *
+from arima_model_creation import *
 
 
 #Load Data Variables
@@ -57,7 +60,7 @@ BATCH_SIZE = 128
 EPOCHS = 20
 
 #Multi-step variable
-LOOKUP_DAYS = 20
+LOOKUP_DAYS = 1
 COLUMN_PREDICTION = 'adjclose'
 
 
@@ -75,6 +78,8 @@ y_train = data['y_train']
 x_test = data['X_test']
 y_test = data['y_test']
 
+
+
 #------------------------------------------------------------------------------
 # Build the Model
 ## TO DO:
@@ -85,11 +90,19 @@ y_test = data['y_test']
 #------------------------------------------------------------------------------
 model = create_model(PREDICTION_DAYS, len(FEATURE_COLUMNS), loss=LOSS, units=UNITS, cell=CELL, n_layers=N_LAYERS,
                     dropout=DROPOUT, optimizer=OPTIMIZER, bidirectional=BIDIRECTIONAL)
+arima_model = create_arima_model(data)
 
 
 # Now we are going to train this model with our training data 
 # (x_train, y_train)
 model.fit(x_train, y_train, epochs=EPOCHS, batch_size=BATCH_SIZE)
+
+print('model fitting')
+arima_fit = arima_model.fit()
+print('model fitted')
+
+forecast = arima_fit.forecast(steps=LOOKUP_DAYS)
+
 # Other parameters to consider: How many rounds(epochs) are we going to 
 # train our model? Typically, the more the better, but be careful about
 # overfitting!
@@ -204,7 +217,13 @@ prediction = model.predict(last_sequence)
 # get the price (by inverting the scaling)
 predicted_price = scaler.inverse_transform(prediction)[0][0]
 
+
+ARIMA_WEIGHT = 1
+LSTM_WEIGHT = 1
+
+ensemble_prediction = ((forecast * ARIMA_WEIGHT) + (predicted_price * LSTM_WEIGHT)) / 2
 print(f"Future price after {LOOKUP_DAYS} days is {predicted_price:.2f}$")
+print(f"Future ensemble price after {LOOKUP_DAYS} days is {ensemble_prediction:}$")
 
 
 
