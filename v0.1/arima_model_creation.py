@@ -42,8 +42,8 @@ def create_arima_model(data):
     #plot_pacf(df['close_diff'].dropna(), lags=40)
     #plt.show()
 
-    p = 27
-    q = 27
+    p = 5
+    q = 5
 
 
     model = ARIMA(df['adjclose'], order=(p, d, q))

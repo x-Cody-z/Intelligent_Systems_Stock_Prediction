@@ -25,6 +25,7 @@ import tensorflow as tf
 import yfinance as yf
 #import talib as tl
 import mplfinance as fplt
+import re
 
 from sklearn.preprocessing import MinMaxScaler
 from tensorflow.keras.models import Sequential
@@ -50,7 +51,7 @@ LOAD_DATA = True
 
 #Create Model Variables
 N_LAYERS = 2
-CELL = GRU
+CELL = LSTM
 UNITS = 256
 DROPOUT = 0.4
 BIDIRECTIONAL = False
@@ -60,7 +61,7 @@ BATCH_SIZE = 128
 EPOCHS = 20
 
 #Multi-step variable
-LOOKUP_DAYS = 1
+LOOKUP_DAYS = 5
 COLUMN_PREDICTION = 'adjclose'
 
 
@@ -217,13 +218,34 @@ prediction = model.predict(last_sequence)
 # get the price (by inverting the scaling)
 predicted_price = scaler.inverse_transform(prediction)[0][0]
 
+# Regular expression pattern to extract float value
+pattern = r'(\d+\.\d+)'
+arima_prediction = 0.00
+# Find float value using regular expression
+matches = re.findall(pattern, str(forecast))
+# Extracted float value as string
+if matches:
+    float_value = matches[0]
+    # Convert string to float
+    arima_prediction = float(float_value)
 
-ARIMA_WEIGHT = 1
-LSTM_WEIGHT = 1
+#Raw weight values for weighted average
+ARIMA_WEIGHT = 1.2
+LSTM_WEIGHT = 0.8
 
-ensemble_prediction = ((forecast * ARIMA_WEIGHT) + (predicted_price * LSTM_WEIGHT)) / 2
+# Calculate total weight
+total_weight = ARIMA_WEIGHT + LSTM_WEIGHT
+
+# Normalize weights
+arima_normalized_weight = ARIMA_WEIGHT / total_weight
+lstm_normalized_weight = LSTM_WEIGHT / total_weight
+
+
+
+ensemble_prediction = ((arima_prediction * arima_normalized_weight) + (predicted_price * lstm_normalized_weight))
 print(f"Future price after {LOOKUP_DAYS} days is {predicted_price:.2f}$")
-print(f"Future ensemble price after {LOOKUP_DAYS} days is {ensemble_prediction:}$")
+print(f"Future ARIMA price after {LOOKUP_DAYS} days is {arima_prediction:.2f}$")
+print(f"Future ensemble price after {LOOKUP_DAYS} days is {ensemble_prediction:.2f}$")
 
 
 
